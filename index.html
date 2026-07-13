@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pojhes Pet Store</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <img id="logo" src="assets/logo.jpg" alt="Store logo">
+      <div>
+        <b id="siteName">Pojhes Pet Store</b>
+        <small id="tagline">Quality Betta Fish • Nationwide Shipping</small>
+      </div>
+    </div>
+    <button id="cartBtn">Cart (<span id="cartCount">0</span>)</button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap heroGrid">
+    <div>
+      <span>LIVE ARRIVAL GUARANTEE</span>
+      <h1>Beautiful Betta Fish, Delivered Nationwide</h1>
+      <p>Browse available bettas, pay through GCash, and upload your proof of payment.</p>
+      <a href="#products" class="btn">Shop Now</a>
+    </div>
+    <img src="assets/sample-betta-1.jpg" alt="Betta fish">
+  </div>
+</section>
+
+<main class="wrap">
+  <div class="sectionHead">
+    <h2 id="products">Available Products</h2>
+    <select id="filter"><option value="">All categories</option></select>
+  </div>
+  <div id="grid" class="grid"></div>
+</main>
+
+<section class="reviewsSection" id="reviews">
+  <div class="wrap">
+    <div class="sectionHead reviewHead">
+      <div>
+        <span class="reviewEyebrow">CUSTOMER FEEDBACK</span>
+        <h2>Customer Reviews</h2>
+        <p id="reviewSummary" class="reviewSummary">No reviews yet.</p>
+      </div>
+      <button id="openReview" class="btn">Write a Review</button>
+    </div>
+    <div id="reviewsGrid" class="reviewsGrid"></div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="wrap feat">
+    <div><b>Nationwide Shipping</b><small>Across the Philippines</small></div>
+    <div><b>GCash Payment</b><small>Upload proof after checkout</small></div>
+    <div><b>Live Arrival Guarantee</b><small>Refund or replacement subject to proof</small></div>
+  </div>
+</section>
+
+<div id="overlay" class="overlay hide"></div>
+
+<aside id="cart" class="cart">
+  <div class="cartHead">
+    <h2>Your Cart</h2>
+    <button id="closeCart">×</button>
+  </div>
+  <div id="cartItems"></div>
+  <div class="cartFoot">
+    <div><span>Total</span><b id="total">₱0</b></div>
+    <button id="checkout" class="btn">Checkout</button>
+  </div>
+</aside>
+
+<dialog id="checkoutDlg">
+  <form id="checkoutForm">
+    <button type="button" id="closeDlg" class="x">×</button>
+    <h2>Checkout</h2>
+    <div class="gcash">
+      <small>GCash Payment</small>
+      <b id="gcashName">Pojhes Pet Store</b>
+      <b id="gcashNumber">09XX XXX XXXX</b>
+      <span id="paymentNote">Use your full name as reference.</span>
+    </div>
+    <label>Full name<input name="customerName" required></label>
+    <label>Mobile number<input name="mobile" required></label>
+    <label>Complete address<textarea name="address" required></textarea></label>
+    <label>Notes<textarea name="notes"></textarea></label>
+    <label>Proof of payment<input name="proof" type="file" accept="image/*" required></label>
+    <button class="btn" type="submit">Submit Order</button>
+    <p id="status"></p>
+  </form>
+</dialog>
+
+<dialog id="reviewDlg">
+  <form id="reviewForm">
+    <button type="button" id="closeReview" class="x">×</button>
+    <h2>Share Your Review</h2>
+    <p class="reviewFormHint">Your review will appear on the customer website after submission.</p>
+    <label>Your name<input name="customerName" maxlength="60" required></label>
+    <label>Product purchased
+      <select name="productId" id="reviewProduct">
+        <option value="">General store review</option>
+      </select>
+    </label>
+    <label>Rating
+      <select name="rating" required>
+        <option value="5">★★★★★ - 5 stars</option>
+        <option value="4">★★★★☆ - 4 stars</option>
+        <option value="3">★★★☆☆ - 3 stars</option>
+        <option value="2">★★☆☆☆ - 2 stars</option>
+        <option value="1">★☆☆☆☆ - 1 star</option>
+      </select>
+    </label>
+    <label>Review<textarea name="reviewText" maxlength="800" rows="5" required placeholder="Tell us about your order and betta fish..."></textarea></label>
+    <label>Photo <span class="optional">(optional)</span>
+      <input name="reviewImage" type="file" accept="image/*">
+      <small>You may submit a review with or without a photo. Maximum 5 MB.</small>
+    </label>
+    <button class="btn" type="submit">Submit Review</button>
+    <p id="reviewStatus"></p>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
