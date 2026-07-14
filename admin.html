@@ -151,7 +151,7 @@
       <div class="ordersHead">
         <div>
           <h2>Orders</h2>
-          <p class="muted">View, copy, or print LBC shipping details. Lalamove orders show the customer's completion confirmation.</p>
+          <p class="muted">Approve payment to deduct stock and email the receipt. Then update the order through Preparing, Ready, Shipped, and Completed. Save the LBC tracking number or Lalamove share link before marking the order Shipped so the customer can see it in Track Order and receive it in the shipping email.</p>
         </div>
       </div>
       <div class="tableWrap">
@@ -190,6 +190,22 @@
     <button type="button" id="closeDeliveryDlg" class="x">×</button>
     <h2 id="deliveryDlgTitle">Shipping Details</h2>
     <div id="deliveryDetailContent"></div>
+
+    <section id="trackingAdminPanel" class="trackingAdminPanel">
+      <div>
+        <h3>Customer Order Tracking</h3>
+        <p id="trackingAdminHelp" class="muted"></p>
+      </div>
+      <label id="trackingNumberLabel">Tracking number
+        <input id="trackingNumberInput" autocomplete="off">
+      </label>
+      <label id="trackingUrlLabel">Tracking / share link <span class="optional">(optional)</span>
+        <input id="trackingUrlInput" type="url" placeholder="https://...">
+      </label>
+      <button type="button" class="btn" id="saveTrackingBtn">Save Tracking Details</button>
+      <p id="trackingSaveMsg"></p>
+    </section>
+
     <div class="actions deliveryDialogActions">
       <button type="button" class="btn secondary" id="copyDeliveryBtn">Copy Details</button>
       <button type="button" class="btn" id="printDeliveryBtn">Print LBC Details</button>
