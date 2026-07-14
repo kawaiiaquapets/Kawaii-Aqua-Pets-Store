@@ -1,9 +1,17 @@
 const API = window.STORE_API_URL;
 const FALLBACK_IMAGE = "assets/logo.png";
+const DEFAULT_LALAMOVE_FORM_URL = "https://delivery.lalamove.com/forms/PH4c4ef013d6d54893b979fa6c04c447ca";
+const DEFAULT_PAYMENT_QR = {
+  gcash: "assets/gcash-qr.jpg",
+  unionbank: "assets/unionbank-qr.jpeg"
+};
+
 let products = [];
 let categories = [];
 let reviews = [];
+let storeSettings = {};
 let cart = JSON.parse(localStorage.getItem("cart") || "[]");
+let lastOrderMessage = "";
 
 const $ = id => document.getElementById(id);
 const peso = n => new Intl.NumberFormat("en-PH", {
@@ -41,10 +49,284 @@ function imageSrc(value, size = 1600) {
 }
 
 function safeImage(img, fallback = FALLBACK_IMAGE) {
+  if (!img) return;
   img.onerror = () => {
     img.onerror = null;
     img.src = fallback;
   };
+}
+
+
+function safeExternalUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    const url = new URL(raw);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function facebookChatUrl() {
+  const pageUrl = safeExternalUrl(storeSettings.facebookPageUrl);
+  if (!pageUrl) return "";
+
+  try {
+    const url = new URL(pageUrl);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+
+    if (host === "m.me") return url.href;
+
+    if (host === "facebook.com" || host === "fb.com") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const first = parts[0] || "";
+
+      if (
+        first &&
+        !["pages", "profile.php", "groups", "share", "sharer"].includes(first.toLowerCase()) &&
+        !/^\d+$/.test(first)
+      ) {
+        return `https://m.me/${encodeURIComponent(first)}`;
+      }
+    }
+  } catch {}
+
+  return pageUrl;
+}
+
+function renderSocialLinks() {
+  const links = [
+    ["facebookLink", storeSettings.facebookPageUrl],
+    ["tiktokLink", storeSettings.tiktokUrl],
+    ["youtubeLink", storeSettings.youtubeUrl]
+  ];
+
+  let visibleCount = 0;
+
+  links.forEach(([id, value]) => {
+    const element = $(id);
+    const url = safeExternalUrl(value);
+    if (!element) return;
+
+    element.classList.toggle("hide", !url);
+    if (url) {
+      element.href = url;
+      visibleCount += 1;
+    } else {
+      element.removeAttribute("href");
+    }
+  });
+
+  $("socialSection")?.classList.toggle("hide", visibleCount === 0);
+
+  const chatUrl = facebookChatUrl();
+  $("floatingChatBtn")?.classList.toggle("hide", !chatUrl);
+}
+
+async function copyText(value) {
+  const textValue = String(value || "");
+
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(textValue);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = textValue;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  const copied = document.execCommand("copy");
+  textarea.remove();
+
+  if (!copied) throw new Error("Browser blocked automatic copy.");
+}
+
+function openSellerChat() {
+  const url = facebookChatUrl();
+
+  if (!url) {
+    alert("Seller chat is not available yet.");
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function buildOrderMessage(order) {
+  const itemLines = (order.items || []).map(item =>
+    `• ${item.name} x${item.qty} — ${peso(Number(item.price || 0) * Number(item.qty || 0))}`
+  );
+
+  return [
+    `Hi ${storeSettings.siteName || "Kawaii Aqua Pets"}! 🐠`,
+    "",
+    "I submitted an order from your website.",
+    "",
+    `ORDER ID: ${order.orderId}`,
+    `CUSTOMER: ${order.customerName}`,
+    `MOBILE: ${order.mobile}`,
+    "",
+    "ORDER:",
+    ...itemLines,
+    "",
+    `TOTAL: ${peso(order.total)}`,
+    `PAYMENT: ${order.paymentSummary}`,
+    `DELIVERY: ${order.deliverySummary}`,
+    "STATUS: Waiting for payment approval",
+    "",
+    "Please confirm my order. Thank you! 🐟"
+  ].join("\n");
+}
+
+function showOrderSuccess(order) {
+  lastOrderMessage = buildOrderMessage(order);
+
+  $("successOrderId").textContent = order.orderId;
+  $("successOrderTotal").textContent = peso(order.total);
+  $("orderSuccessSummary").textContent =
+    `${order.paymentSummary} payment proof received. Your order is waiting for admin payment approval.`;
+
+  const hasFacebook = Boolean(facebookChatUrl());
+  $("sendOrderSellerBtn").classList.toggle("hide", !hasFacebook);
+  $("messengerInstruction").classList.toggle("hide", !hasFacebook);
+  $("orderSuccessMsg").textContent = "";
+
+  $("orderSuccessDlg").showModal();
+}
+
+async function copyOrderAndOpenSeller() {
+  if (!lastOrderMessage) return;
+
+  const url = facebookChatUrl();
+  if (!url) return;
+
+  const chatWindow = window.open("about:blank", "_blank");
+
+  try {
+    await copyText(lastOrderMessage);
+    $("orderSuccessMsg").textContent =
+      "Order details copied. Facebook/Messenger is opening—paste the message and send it to the seller.";
+
+    if (chatWindow) {
+      chatWindow.opener = null;
+      chatWindow.location.href = url;
+    } else {
+      window.location.href = url;
+    }
+  } catch (err) {
+    if (chatWindow) chatWindow.close();
+    $("orderSuccessMsg").textContent =
+      err.message || "Could not copy the order details.";
+  }
+}
+
+async function copyLastOrder() {
+  if (!lastOrderMessage) return;
+
+  try {
+    await copyText(lastOrderMessage);
+    $("orderSuccessMsg").textContent = "Order details copied.";
+  } catch (err) {
+    $("orderSuccessMsg").textContent =
+      err.message || "Could not copy the order details.";
+  }
+}
+
+function cartTotal() {
+  return cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+}
+
+function selectedPaymentMethod(form = $("checkoutForm")) {
+  return form.querySelector('input[name="paymentMethod"]:checked')?.value || "";
+}
+
+function getPaymentInfo(method) {
+  if (method === "unionbank") {
+    return {
+      method: "unionbank",
+      label: "UnionBank",
+      accountName: storeSettings.unionBankName || "JOEBERT O GREGANDA",
+      accountHint: storeSettings.unionBankAccountHint || "**** **** 6628",
+      qrUrl: storeSettings.unionBankQrUrl || DEFAULT_PAYMENT_QR.unionbank,
+      fileId: storeSettings.unionBankQrFileId || ""
+    };
+  }
+
+  return {
+    method: "gcash",
+    label: "GCash",
+    accountName: storeSettings.gcashName || "Joebert Greganda",
+    accountHint: storeSettings.gcashNumber || "",
+    qrUrl: storeSettings.gcashQrUrl || DEFAULT_PAYMENT_QR.gcash,
+    fileId: storeSettings.gcashQrFileId || ""
+  };
+}
+
+function renderPaymentDetails() {
+  const method = selectedPaymentMethod();
+  const box = $("paymentBox");
+
+  box.classList.toggle("hide", !method);
+  $("paymentAmount").textContent = peso(cartTotal());
+
+  if (!method) return;
+
+  const info = getPaymentInfo(method);
+  $("paymentProvider").textContent = info.label;
+  $("paymentAccountName").textContent = info.accountName;
+  $("paymentAccountHint").textContent = info.accountHint;
+  $("paymentAccountHint").classList.toggle("hide", !info.accountHint);
+  $("paymentQr").src = imageSrc(info.qrUrl, 1800);
+  $("paymentQr").alt = `${info.label} payment QR code`;
+  $("paymentNote").textContent = storeSettings.paymentNote || "Using one phone only? Download the QR first, then select the saved QR image inside your payment app.";
+}
+
+function triggerDownload(dataUrl, filename) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+async function downloadPaymentQr() {
+  const method = selectedPaymentMethod();
+  if (!method) return alert("Please select GCash or UnionBank first.");
+
+  const info = getPaymentInfo(method);
+  const filename = `Kawaii-Aqua-Pets-${info.label}-QR.${method === "unionbank" ? "jpeg" : "jpg"}`;
+  const isDriveImage = Boolean(info.fileId) || /drive\.google\.com/.test(info.qrUrl);
+
+  try {
+    if (isDriveImage) {
+      const result = await api("getPaymentQr", {method});
+      if (!result.dataUrl) throw new Error("Payment QR is not available for download.");
+      triggerDownload(result.dataUrl, result.filename || filename);
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = info.qrUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (err) {
+    alert(err.message || "Could not download the QR. Use View Full Size and save the image instead.");
+  }
+}
+
+function viewPaymentQr() {
+  const method = selectedPaymentMethod();
+  if (!method) return alert("Please select GCash or UnionBank first.");
+  window.open(imageSrc(getPaymentInfo(method).qrUrl, 2000), "_blank", "noopener");
 }
 
 async function optimizeImage(file, maxDimension = 1600, quality = 0.86) {
@@ -70,19 +352,27 @@ async function load(silent = false) {
     products = data.products || [];
     categories = data.categories || [];
     reviews = data.reviews || [];
+    storeSettings = data.settings || {};
 
-    Object.entries(data.settings || {}).forEach(([key, value]) => {
+    Object.entries(storeSettings).forEach(([key, value]) => {
       const element = $(key);
       if (element) element.textContent = value;
     });
 
-    if (data.settings?.siteName) document.title = data.settings.siteName;
-    if (data.settings?.logoUrl) {
-      $("logo").src = imageSrc(data.settings.logoUrl, 800);
-      $("heroImage").src = imageSrc(data.settings.logoUrl, 1200);
+    if (storeSettings.siteName) document.title = storeSettings.siteName;
+    if (storeSettings.logoUrl) {
+      $("logo").src = imageSrc(storeSettings.logoUrl, 800);
+      $("heroImage").src = imageSrc(storeSettings.logoUrl, 1200);
     }
+
+    $("lalamoveFormLink").href = storeSettings.lalamoveFormUrl || DEFAULT_LALAMOVE_FORM_URL;
+    renderPaymentDetails();
+    renderSocialLinks();
   } catch (err) {
     if (!silent) console.error(err);
+    $("lalamoveFormLink").href = DEFAULT_LALAMOVE_FORM_URL;
+    renderPaymentDetails();
+    renderSocialLinks();
   }
 
   syncCartWithStock();
@@ -158,13 +448,23 @@ function renderReviewProducts() {
 function add(id) {
   const product = products.find(x => x.id === id);
   if (!product) return;
+
   const stock = Math.max(0, Number(product.stock) || 0);
   if (stock <= 0) return alert("This item is sold out.");
+
   const item = cart.find(x => x.id === id);
   const currentQty = item ? Number(item.qty) : 0;
   if (currentQty >= stock) return alert(`Only ${stock} item(s) available.`);
+
   if (item) item.qty += 1;
-  else cart.push({id:product.id,name:product.name,price:Number(product.price),imageUrl:product.imageUrl,qty:1});
+  else cart.push({
+    id: product.id,
+    name: product.name,
+    price: Number(product.price),
+    imageUrl: product.imageUrl,
+    qty: 1
+  });
+
   save();
 }
 
@@ -172,6 +472,7 @@ function changeQty(index, delta) {
   const item = cart[index];
   const product = products.find(p => p.id === item.id);
   const stock = product ? Math.max(0, Number(product.stock) || 0) : 0;
+
   if (delta > 0 && item.qty >= stock) return alert(`Only ${stock} item(s) available.`);
   item.qty = Math.max(1, item.qty + delta);
   save();
@@ -181,8 +482,15 @@ function syncCartWithStock() {
   cart = cart.map(item => {
     const product = products.find(p => p.id === item.id);
     if (!product || Number(product.stock) <= 0) return null;
-    return {id:product.id,name:product.name,price:Number(product.price),imageUrl:product.imageUrl,qty:Math.min(Math.max(1,Number(item.qty)||1),Number(product.stock))};
+    return {
+      id: product.id,
+      name: product.name,
+      price: Number(product.price),
+      imageUrl: product.imageUrl,
+      qty: Math.min(Math.max(1, Number(item.qty) || 1), Number(product.stock))
+    };
   }).filter(Boolean);
+
   localStorage.setItem("cart", JSON.stringify(cart));
 }
 
@@ -196,45 +504,232 @@ function renderCart() {
   $("cartItems").innerHTML = cart.map((item, index) => `
     <div class="cartItem">
       <img src="${escapeHtml(imageSrc(item.imageUrl, 500))}" alt="${escapeHtml(item.name)}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}'">
-      <div><b>${escapeHtml(item.name)}</b><div>${peso(item.price)} each</div>
+      <div>
+        <b>${escapeHtml(item.name)}</b>
+        <div>${peso(item.price)} each</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-          <button type="button" onclick="changeQty(${index},-1)">−</button><strong>${item.qty}</strong><button type="button" onclick="changeQty(${index},1)">+</button>
+          <button type="button" onclick="changeQty(${index},-1)">−</button>
+          <strong>${item.qty}</strong>
+          <button type="button" onclick="changeQty(${index},1)">+</button>
         </div>
       </div>
       <button onclick="cart.splice(${index},1);save()">×</button>
-    </div>`).join("") || "<p style='padding:18px'>Cart is empty.</p>";
-  $("total").textContent = peso(cart.reduce((sum, item) => sum + item.price * item.qty, 0));
+    </div>
+  `).join("") || "<p style='padding:18px'>Cart is empty.</p>";
+
+  $("total").textContent = peso(cartTotal());
+  renderPaymentDetails();
 }
 
-function openCart(){ $("cart").classList.add("open"); $("overlay").classList.remove("hide"); }
-function closeCart(){ $("cart").classList.remove("open"); $("overlay").classList.add("hide"); }
-function escapeHtml(value){ return String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"})[c]); }
-function formatDate(value){ const d=new Date(value); return !value||Number.isNaN(d.getTime())?String(value||""):d.toLocaleDateString("en-PH",{year:"numeric",month:"short",day:"numeric"}); }
+function openCart() {
+  $("cart").classList.add("open");
+  $("overlay").classList.remove("hide");
+}
+
+function closeCart() {
+  $("cart").classList.remove("open");
+  $("overlay").classList.add("hide");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  })[c]);
+}
+
+function formatDate(value) {
+  const d = new Date(value);
+  return !value || Number.isNaN(d.getTime())
+    ? String(value || "")
+    : d.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function setRequired(form, names, required) {
+  names.forEach(name => {
+    const field = form.elements[name];
+    if (field) field.required = required;
+  });
+}
+
+function syncBaseCustomerToLbc() {
+  const form = $("checkoutForm");
+  if (!form.lbcReceiverName.value.trim()) form.lbcReceiverName.value = form.customerName.value.trim();
+  if (!form.lbcMobile.value.trim()) form.lbcMobile.value = form.mobile.value.trim();
+}
+
+function toggleLbcServiceType() {
+  const form = $("checkoutForm");
+  const isLbc = form.deliveryMethod.value === "lbc";
+  const isBranch = isLbc && form.lbcServiceType.value === "Branch Pickup";
+
+  $("lbcDoorFields").classList.toggle("hide", !isLbc || isBranch);
+  $("lbcBranchFields").classList.toggle("hide", !isBranch);
+
+  setRequired(form, [
+    "lbcProvince",
+    "lbcCity",
+    "lbcBarangay",
+    "lbcPostalCode",
+    "lbcHouseUnit",
+    "lbcStreet"
+  ], isLbc && !isBranch);
+
+  setRequired(form, [
+    "lbcBranchProvince",
+    "lbcBranchCity",
+    "lbcBranchName",
+    "lbcValidIdName"
+  ], isBranch);
+}
+
+function toggleDeliveryFields() {
+  const form = $("checkoutForm");
+  const method = form.deliveryMethod.value;
+  const isLalamove = method === "lalamove";
+  const isLbc = method === "lbc";
+
+  $("lalamoveFields").classList.toggle("hide", !isLalamove);
+  $("lbcFields").classList.toggle("hide", !isLbc);
+
+  form.lalamoveCompleted.required = isLalamove;
+  setRequired(form, ["lbcReceiverName", "lbcMobile", "lbcServiceType"], isLbc);
+
+  if (isLbc) syncBaseCustomerToLbc();
+  toggleLbcServiceType();
+}
+
+function buildLbcPayload(form) {
+  return {
+    receiverName: form.lbcReceiverName.value.trim(),
+    mobile: form.lbcMobile.value.trim(),
+    email: form.lbcEmail.value.trim(),
+    serviceType: form.lbcServiceType.value,
+    province: form.lbcProvince.value.trim(),
+    cityMunicipality: form.lbcCity.value.trim(),
+    barangay: form.lbcBarangay.value.trim(),
+    postalCode: form.lbcPostalCode.value.trim(),
+    houseUnit: form.lbcHouseUnit.value.trim(),
+    streetSubdivision: form.lbcStreet.value.trim(),
+    landmark: form.lbcLandmark.value.trim(),
+    branchProvince: form.lbcBranchProvince.value.trim(),
+    branchCity: form.lbcBranchCity.value.trim(),
+    branchName: form.lbcBranchName.value.trim(),
+    validIdName: form.lbcValidIdName.value.trim(),
+    instructions: form.lbcInstructions.value.trim()
+  };
+}
 
 safeImage($("logo"));
 safeImage($("heroImage"));
+
 $("filter").onchange = renderProducts;
 $("cartBtn").onclick = openCart;
 $("closeCart").onclick = $("overlay").onclick = closeCart;
-$("checkout").onclick = () => { if(!cart.length)return alert("Cart is empty"); closeCart(); $("checkoutDlg").showModal(); };
+
+$("checkout").onclick = () => {
+  if (!cart.length) return alert("Cart is empty");
+  closeCart();
+  toggleDeliveryFields();
+  renderPaymentDetails();
+  $("checkoutDlg").showModal();
+};
+
 $("closeDlg").onclick = () => $("checkoutDlg").close();
 $("openReview").onclick = () => $("reviewDlg").showModal();
 $("closeReview").onclick = () => $("reviewDlg").close();
+
+$("deliveryMethod").onchange = toggleDeliveryFields;
+$("lbcServiceType").onchange = toggleLbcServiceType;
+document.querySelectorAll('input[name="paymentMethod"]').forEach(input => {
+  input.onchange = renderPaymentDetails;
+});
+$("downloadQrBtn").onclick = downloadPaymentQr;
+$("viewQrBtn").onclick = viewPaymentQr;
+$("floatingChatBtn").onclick = openSellerChat;
+$("sendOrderSellerBtn").onclick = copyOrderAndOpenSeller;
+$("copyOrderBtn").onclick = copyLastOrder;
+$("closeOrderSuccess").onclick = () => $("orderSuccessDlg").close();
+$("continueShoppingBtn").onclick = () => $("orderSuccessDlg").close();
+
+$("checkoutForm").customerName.addEventListener("change", () => {
+  const form = $("checkoutForm");
+  if (form.deliveryMethod.value === "lbc" && !form.lbcReceiverName.value.trim()) {
+    form.lbcReceiverName.value = form.customerName.value.trim();
+  }
+});
+
+$("checkoutForm").mobile.addEventListener("change", () => {
+  const form = $("checkoutForm");
+  if (form.deliveryMethod.value === "lbc" && !form.lbcMobile.value.trim()) {
+    form.lbcMobile.value = form.mobile.value.trim();
+  }
+});
 
 $("checkoutForm").onsubmit = async event => {
   event.preventDefault();
   const form = event.target;
   const file = form.proof.files[0];
+  const deliveryMethod = form.deliveryMethod.value;
+  const paymentMethod = selectedPaymentMethod(form);
+
+  toggleDeliveryFields();
+
+  if (!form.reportValidity()) return;
   if (!file) return alert("Please upload your proof of payment.");
+
+  if (deliveryMethod === "lalamove" && !form.lalamoveCompleted.checked) {
+    $("status").textContent = "Please complete the Lalamove delivery form and confirm the checkbox.";
+    return;
+  }
+
   $("status").textContent = "Optimizing image and submitting...";
+
   try {
-    const data = await api("createOrder", {order:{
-      customerName:form.customerName.value.trim(), mobile:form.mobile.value.trim(), address:form.address.value.trim(), notes:form.notes.value.trim(), items:cart,
-      proofData:await optimizeImage(file,1600,.84), proofName:file.name
-    }});
-    $("status").textContent = `Order submitted: ${data.orderId}. Payment is waiting for admin approval.`;
-    cart=[]; save(); form.reset(); await load(true);
-  } catch(err){ $("status").textContent=err.message; }
+    const data = await api("createOrder", {
+      order: {
+        customerName: form.customerName.value.trim(),
+        mobile: form.mobile.value.trim(),
+        address: form.address.value.trim(),
+        notes: form.notes.value.trim(),
+        items: cart,
+        deliveryMethod,
+        paymentMethod,
+        lalamoveFormCompleted: form.lalamoveCompleted.checked,
+        lbc: deliveryMethod === "lbc" ? buildLbcPayload(form) : {},
+        proofData: await optimizeImage(file, 1600, 0.84),
+        proofName: file.name
+      }
+    });
+
+    const submittedOrder = {
+      orderId: data.orderId,
+      total: data.total,
+      paymentSummary: data.paymentSummary,
+      deliverySummary: data.deliverySummary,
+      customerName: form.customerName.value.trim(),
+      mobile: form.mobile.value.trim(),
+      items: cart.map(item => ({
+        name: item.name,
+        qty: Number(item.qty),
+        price: Number(item.price)
+      }))
+    };
+
+    $("status").textContent = `Order submitted: ${data.orderId}. Waiting for admin payment approval.`;
+    cart = [];
+    save();
+    form.reset();
+    toggleDeliveryFields();
+    $("checkoutDlg").close();
+    await load(true);
+    showOrderSuccess(submittedOrder);
+  } catch (err) {
+    $("status").textContent = err.message;
+  }
 };
 
 $("reviewForm").onsubmit = async event => {
@@ -242,17 +737,33 @@ $("reviewForm").onsubmit = async event => {
   const form = event.target;
   const file = form.reviewImage.files[0];
   $("reviewStatus").textContent = "Submitting review...";
+
   try {
-    await api("createReview", {review:{
-      customerName:form.customerName.value.trim(), productId:form.productId.value, rating:Number(form.rating.value), reviewText:form.reviewText.value.trim(),
-      imageData:file?await optimizeImage(file,1600,.84):"", imageName:file?file.name:""
-    }});
-    $("reviewStatus").textContent="Thank you! Your review has been posted.";
-    form.reset(); await load(true); setTimeout(()=>$("reviewDlg").close(),1200);
-  } catch(err){ $("reviewStatus").textContent=err.message; }
+    await api("createReview", {
+      review: {
+        customerName: form.customerName.value.trim(),
+        productId: form.productId.value,
+        rating: Number(form.rating.value),
+        reviewText: form.reviewText.value.trim(),
+        imageData: file ? await optimizeImage(file, 1600, 0.84) : "",
+        imageName: file ? file.name : ""
+      }
+    });
+
+    $("reviewStatus").textContent = "Thank you! Your review has been posted.";
+    form.reset();
+    await load(true);
+    setTimeout(() => $("reviewDlg").close(), 1200);
+  } catch (err) {
+    $("reviewStatus").textContent = err.message;
+  }
 };
 
+toggleDeliveryFields();
 load();
 renderCart();
-setInterval(()=>load(true),60000);
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden)load(true); });
+
+setInterval(() => load(true), 60000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) load(true);
+});
