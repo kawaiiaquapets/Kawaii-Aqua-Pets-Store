@@ -12,6 +12,9 @@ let reviews = [];
 let storeSettings = {};
 let cart = JSON.parse(localStorage.getItem("cart") || "[]");
 let lastOrderMessage = "";
+let checkoutMode = "cart";
+let buyNowItem = null;
+let lastSubmittedOrder = null;
 
 const $ = id => document.getElementById(id);
 const peso = n => new Intl.NumberFormat("en-PH", {
@@ -171,6 +174,7 @@ function buildOrderMessage(order) {
     `ORDER ID: ${order.orderId}`,
     `CUSTOMER: ${order.customerName}`,
     `MOBILE: ${order.mobile}`,
+    `EMAIL: ${order.email || ""}`,
     "",
     "ORDER:",
     ...itemLines,
@@ -185,12 +189,18 @@ function buildOrderMessage(order) {
 }
 
 function showOrderSuccess(order) {
+  lastSubmittedOrder = order;
   lastOrderMessage = buildOrderMessage(order);
+  localStorage.setItem("kap_last_order_lookup", JSON.stringify({
+    orderId: order.orderId,
+    email: order.email || "",
+    mobile: order.mobile || ""
+  }));
 
   $("successOrderId").textContent = order.orderId;
   $("successOrderTotal").textContent = peso(order.total);
   $("orderSuccessSummary").textContent =
-    `${order.paymentSummary} payment proof received. Your order is waiting for admin payment approval.`;
+    `${order.paymentSummary} payment proof received. Your order is waiting for admin payment approval. Once approved, a payment receipt will be emailed to ${order.email}. Shipping fee is not included in the product total.`;
 
   const hasFacebook = Boolean(facebookChatUrl());
   $("sendOrderSellerBtn").classList.toggle("hide", !hasFacebook);
@@ -238,8 +248,266 @@ async function copyLastOrder() {
   }
 }
 
+function getSavedOrderLookup() {
+  try {
+    return JSON.parse(localStorage.getItem("kap_last_order_lookup") || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function openTrackOrder(prefill = null) {
+  const form = $("trackOrderForm");
+  const saved = prefill || getSavedOrderLookup();
+
+  if (saved) {
+    form.orderId.value = saved.orderId || saved.id || "";
+    form.contact.value = saved.email || saved.mobile || saved.contact || "";
+  }
+
+  $("trackOrderStatus").textContent = "";
+  $("trackOrderResult").classList.add("hide");
+  $("trackOrderResult").innerHTML = "";
+  $("trackOrderDlg").showModal();
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  return !value || Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+}
+
+function trackingStatusLabel(status) {
+  const labels = {
+    Pending: "Waiting for Payment Approval",
+    Paid: "Payment Confirmed",
+    Preparing: "Preparing Your Order",
+    Ready: "Ready for Shipping",
+    Shipped: "Shipped / Out for Delivery",
+    Completed: "Order Completed",
+    Cancelled: "Order Cancelled"
+  };
+  return labels[status] || status || "Order Received";
+}
+
+function renderTrackingResult(order) {
+  const container = $("trackOrderResult");
+  const history = Array.isArray(order.statusHistory) ? order.statusHistory : [];
+  const eventMap = {};
+  history.forEach(event => {
+    if (event?.status && !eventMap[event.status]) eventMap[event.status] = event.at || "";
+  });
+
+  const steps = [
+    {key: "Received", eventStatus: "Pending", label: "Order Received", description: "Your order and payment proof were submitted."},
+    {key: "Paid", eventStatus: "Paid", label: "Payment Confirmed", description: "The seller approved your payment."},
+    {key: "Preparing", eventStatus: "Preparing", label: "Preparing Your Order", description: "Your order is being prepared for shipment."},
+    {key: "Ready", eventStatus: "Ready", label: "Ready for Shipping", description: "Your parcel is ready for courier handoff."},
+    {key: "Shipped", eventStatus: "Shipped", label: "Shipped / Out for Delivery", description: "Your order has been handed to the selected delivery service."},
+    {key: "Completed", eventStatus: "Completed", label: "Order Completed", description: "The order has been completed."}
+  ];
+  const statusStepIndex = {
+    Pending: 1,
+    Paid: 1,
+    Preparing: 2,
+    Ready: 3,
+    Shipped: 4,
+    Completed: 5
+  };
+  const currentStatus = order.status || "Pending";
+  const currentStepIndex = statusStepIndex[currentStatus] ?? 1;
+  const isCancelled = currentStatus === "Cancelled";
+
+  const timelineHtml = steps.map((step, index) => {
+    let state = "upcoming";
+
+    if (isCancelled) {
+      state = index === 0 || eventMap[step.eventStatus] ? "done" : "upcoming";
+    } else if (index === 0) {
+      state = "done";
+    } else if (index < currentStepIndex) {
+      state = "done";
+    } else if (index === currentStepIndex) {
+      state = "current";
+    }
+
+    const at = step.key === "Received"
+      ? (eventMap.Pending || order.createdAt)
+      : eventMap[step.eventStatus] || "";
+    const label = currentStatus === "Pending" && step.key === "Paid"
+      ? "Waiting for Payment Confirmation"
+      : step.label;
+    const description = currentStatus === "Pending" && step.key === "Paid"
+      ? "Your proof of payment is waiting for seller approval."
+      : step.description;
+
+    return `
+      <div class="trackStep ${state}">
+        <div class="trackStepMarker">${state === "done" ? "✓" : state === "current" ? "●" : ""}</div>
+        <div class="trackStepContent">
+          <b>${escapeHtml(label)}</b>
+          <p>${escapeHtml(description)}</p>
+          ${at ? `<small>${escapeHtml(formatDateTime(at))}</small>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const courierAction = order.trackingUrl
+    ? `<a class="btn trackCourierBtn" href="${escapeHtml(order.trackingUrl)}" target="_blank" rel="noopener noreferrer">Open Courier Tracking</a>`
+    : "";
+
+  const itemsHtml = (order.items || []).map(item => `
+    <div class="trackItemRow">
+      <span>${escapeHtml(item.name)} × ${Number(item.qty) || 1}</span>
+      <b>${peso(Number(item.price || 0) * Number(item.qty || 0))}</b>
+    </div>
+  `).join("");
+
+  container.innerHTML = `
+    <section class="trackOrderCard">
+      <div class="trackOrderCardHead">
+        <div>
+          <small>ORDER ID</small>
+          <b>${escapeHtml(order.id)}</b>
+        </div>
+        <span class="trackStatusBadge ${isCancelled ? "cancelled" : ""}">${escapeHtml(trackingStatusLabel(currentStatus))}</span>
+      </div>
+      <div class="trackMetaGrid">
+        <div><small>PRODUCT TOTAL</small><b>${peso(order.total)}</b><span>Shipping fee not included</span></div>
+        <div><small>PAYMENT</small><b>${escapeHtml(order.paymentSummary || "—")}</b></div>
+        <div><small>DELIVERY</small><b>${escapeHtml(order.deliverySummary || order.deliveryMethod || "—")}</b></div>
+        ${order.trackingNumber ? `<div><small>TRACKING NUMBER</small><b class="trackingNumberText">${escapeHtml(order.trackingNumber)}</b></div>` : ""}
+      </div>
+      ${courierAction}
+    </section>
+
+    ${isCancelled ? `
+      <div class="trackCancelledNotice">
+        <b>Order Cancelled</b>
+        <span>This order has been cancelled. Contact the seller if you need assistance.</span>
+        ${eventMap.Cancelled ? `<small>${escapeHtml(formatDateTime(eventMap.Cancelled))}</small>` : ""}
+      </div>
+    ` : ""}
+
+    <section class="trackTimeline">
+      <h3>Order Timeline</h3>
+      ${timelineHtml}
+    </section>
+
+    <section class="trackItemsCard">
+      <h3>Order Items</h3>
+      ${itemsHtml}
+      <div class="trackItemTotal"><span>Product Total</span><b>${peso(order.total)}</b></div>
+      <small>Shipping fee is not included in the product total.</small>
+    </section>
+  `;
+
+  container.classList.remove("hide");
+}
+
 function cartTotal() {
   return cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+}
+
+function getCheckoutItems() {
+  return checkoutMode === "buyNow" && buyNowItem
+    ? [{...buyNowItem}]
+    : cart.map(item => ({...item}));
+}
+
+function checkoutTotal() {
+  return getCheckoutItems().reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
+    0
+  );
+}
+
+function renderCheckoutMiniSummary() {
+  const box = $("checkoutMiniSummary");
+  if (!box) return;
+
+  const items = getCheckoutItems();
+  const title = checkoutMode === "buyNow" ? "Buy Now" : "Cart Checkout";
+
+  box.innerHTML = `
+    <div>
+      <small>${escapeHtml(title.toUpperCase())}</small>
+      <b>${items.map(item => `${escapeHtml(item.name)} x${Number(item.qty) || 1}`).join(", ")}</b>
+    </div>
+    <strong>${peso(checkoutTotal())}</strong>
+  `;
+}
+
+function openCheckout(mode = "cart", productId = "") {
+  if (mode === "buyNow") {
+    const product = products.find(item => item.id === productId);
+    if (!product) return alert("Product is not available.");
+
+    const stock = Math.max(0, Number(product.stock) || 0);
+    if (stock <= 0) return alert("This item is sold out.");
+
+    checkoutMode = "buyNow";
+    buyNowItem = {
+      id: product.id,
+      name: product.name,
+      price: Number(product.price),
+      imageUrl: product.imageUrl,
+      qty: 1
+    };
+  } else {
+    if (!cart.length) return alert("Cart is empty");
+    checkoutMode = "cart";
+    buyNowItem = null;
+    closeCart();
+  }
+
+  toggleDeliveryFields();
+  renderCheckoutMiniSummary();
+  renderPaymentDetails();
+  $("status").textContent = "";
+  $("checkoutDlg").showModal();
+}
+
+function showAddedToCartToast(product) {
+  let toast = document.getElementById("cartToast");
+
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "cartToast";
+    toast.className = "cartToast";
+    toast.innerHTML = `
+      <div class="cartToastIcon">✓</div>
+      <div class="cartToastText">
+        <b id="cartToastTitle">Added to cart</b>
+        <span id="cartToastProduct"></span>
+      </div>
+      <button type="button" id="cartToastView">View Cart</button>
+    `;
+    document.body.appendChild(toast);
+    toast.querySelector("#cartToastView").onclick = () => {
+      toast.classList.remove("show");
+      openCart();
+    };
+  }
+
+  toast.querySelector("#cartToastTitle").textContent = "Added to cart";
+  toast.querySelector("#cartToastProduct").textContent = product.name;
+  toast.classList.remove("show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+
+  clearTimeout(showAddedToCartToast.timer);
+  showAddedToCartToast.timer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2800);
 }
 
 function selectedPaymentMethod(form = $("checkoutForm")) {
@@ -273,7 +541,7 @@ function renderPaymentDetails() {
   const box = $("paymentBox");
 
   box.classList.toggle("hide", !method);
-  $("paymentAmount").textContent = peso(cartTotal());
+  $("paymentAmount").textContent = peso(checkoutTotal());
 
   if (!method) return;
 
@@ -407,7 +675,10 @@ function renderProducts() {
               <b>${peso(p.price)}</b>
               <small style="display:block;margin-top:4px;color:${soldOut ? "#b42318" : "#65756f"}">${soldOut ? "SOLD OUT" : `${stock} available`}</small>
             </div>
-            <button class="btn" ${soldOut ? "disabled" : ""} onclick="add('${escapeHtml(p.id)}')">${soldOut ? "Sold Out" : "Add to Cart"}</button>
+            <div class="productActions">
+              <button class="btn secondary addCartBtn" ${soldOut ? "disabled" : ""} onclick="add('${escapeHtml(p.id)}')">${soldOut ? "Sold Out" : "Add to Cart"}</button>
+              <button class="btn buyNowBtn" ${soldOut ? "disabled" : ""} onclick="buyNow('${escapeHtml(p.id)}')">${soldOut ? "Unavailable" : "Buy Now"}</button>
+            </div>
           </div>
         </div>
       </article>`;
@@ -466,6 +737,11 @@ function add(id) {
   });
 
   save();
+  showAddedToCartToast(product);
+}
+
+function buyNow(id) {
+  openCheckout("buyNow", id);
 }
 
 function changeQty(index, delta) {
@@ -559,6 +835,7 @@ function syncBaseCustomerToLbc() {
   const form = $("checkoutForm");
   if (!form.lbcReceiverName.value.trim()) form.lbcReceiverName.value = form.customerName.value.trim();
   if (!form.lbcMobile.value.trim()) form.lbcMobile.value = form.mobile.value.trim();
+  if (!form.lbcEmail.value.trim()) form.lbcEmail.value = form.email.value.trim();
 }
 
 function toggleLbcServiceType() {
@@ -627,18 +904,26 @@ safeImage($("logo"));
 safeImage($("heroImage"));
 
 $("filter").onchange = renderProducts;
+$("trackOrderBtn").onclick = () => openTrackOrder();
+$("closeTrackOrder").onclick = () => $("trackOrderDlg").close();
+$("trackThisOrderBtn").onclick = () => {
+  $("orderSuccessDlg").close();
+  openTrackOrder(lastSubmittedOrder ? {
+    orderId: lastSubmittedOrder.orderId,
+    email: lastSubmittedOrder.email,
+    mobile: lastSubmittedOrder.mobile
+  } : null);
+};
 $("cartBtn").onclick = openCart;
 $("closeCart").onclick = $("overlay").onclick = closeCart;
 
-$("checkout").onclick = () => {
-  if (!cart.length) return alert("Cart is empty");
-  closeCart();
-  toggleDeliveryFields();
-  renderPaymentDetails();
-  $("checkoutDlg").showModal();
-};
+$("checkout").onclick = () => openCheckout("cart");
 
-$("closeDlg").onclick = () => $("checkoutDlg").close();
+$("closeDlg").onclick = () => {
+  $("checkoutDlg").close();
+  checkoutMode = "cart";
+  buyNowItem = null;
+};
 $("openReview").onclick = () => $("reviewDlg").showModal();
 $("closeReview").onclick = () => $("reviewDlg").close();
 
@@ -669,16 +954,45 @@ $("checkoutForm").mobile.addEventListener("change", () => {
   }
 });
 
+$("checkoutForm").email.addEventListener("change", () => {
+  const form = $("checkoutForm");
+  if (form.deliveryMethod.value === "lbc" && !form.lbcEmail.value.trim()) {
+    form.lbcEmail.value = form.email.value.trim();
+  }
+});
+
+$("trackOrderForm").onsubmit = async event => {
+  event.preventDefault();
+  const form = event.target;
+  const orderId = form.orderId.value.trim();
+  const contact = form.contact.value.trim();
+
+  $("trackOrderStatus").textContent = "Checking order...";
+  $("trackOrderResult").classList.add("hide");
+
+  try {
+    const result = await api("trackOrder", {orderId, contact});
+    $("trackOrderStatus").textContent = "";
+    renderTrackingResult(result.order);
+    localStorage.setItem("kap_last_order_lookup", JSON.stringify({orderId, contact}));
+  } catch (err) {
+    $("trackOrderStatus").textContent = err.message;
+    $("trackOrderResult").innerHTML = "";
+  }
+};
+
 $("checkoutForm").onsubmit = async event => {
   event.preventDefault();
   const form = event.target;
   const file = form.proof.files[0];
   const deliveryMethod = form.deliveryMethod.value;
   const paymentMethod = selectedPaymentMethod(form);
+  const checkoutItems = getCheckoutItems();
 
   toggleDeliveryFields();
 
   if (!form.reportValidity()) return;
+  if (!checkoutItems.length) return alert("There are no items to checkout.");
   if (!file) return alert("Please upload your proof of payment.");
 
   if (deliveryMethod === "lalamove" && !form.lalamoveCompleted.checked) {
@@ -693,9 +1007,10 @@ $("checkoutForm").onsubmit = async event => {
       order: {
         customerName: form.customerName.value.trim(),
         mobile: form.mobile.value.trim(),
+        email: form.email.value.trim(),
         address: form.address.value.trim(),
         notes: form.notes.value.trim(),
-        items: cart,
+        items: checkoutItems,
         deliveryMethod,
         paymentMethod,
         lalamoveFormCompleted: form.lalamoveCompleted.checked,
@@ -712,7 +1027,8 @@ $("checkoutForm").onsubmit = async event => {
       deliverySummary: data.deliverySummary,
       customerName: form.customerName.value.trim(),
       mobile: form.mobile.value.trim(),
-      items: cart.map(item => ({
+      email: form.email.value.trim(),
+      items: checkoutItems.map(item => ({
         name: item.name,
         qty: Number(item.qty),
         price: Number(item.price)
@@ -720,8 +1036,14 @@ $("checkoutForm").onsubmit = async event => {
     };
 
     $("status").textContent = `Order submitted: ${data.orderId}. Waiting for admin payment approval.`;
-    cart = [];
-    save();
+
+    if (checkoutMode === "cart") {
+      cart = [];
+      save();
+    }
+
+    checkoutMode = "cart";
+    buyNowItem = null;
     form.reset();
     toggleDeliveryFields();
     $("checkoutDlg").close();
