@@ -16,7 +16,10 @@
         <small id="tagline">Quality Betta, Guppy & Aqua Pets • Nationwide Shipping</small>
       </div>
     </div>
-    <button id="cartBtn">Cart (<span id="cartCount">0</span>)</button>
+    <div class="navActions">
+      <button id="trackOrderBtn" class="navTrackBtn" type="button">Track Order</button>
+      <button id="cartBtn">Cart (<span id="cartCount">0</span>)</button>
+    </div>
   </div>
 </header>
 
@@ -95,10 +98,34 @@
   </div>
 </aside>
 
+
+<dialog id="trackOrderDlg" class="trackOrderDialog">
+  <form id="trackOrderForm">
+    <button type="button" id="closeTrackOrder" class="x">×</button>
+    <span class="reviewEyebrow">ORDER STATUS</span>
+    <h2>Track Your Order</h2>
+    <p class="trackOrderIntro">Enter your Order ID and the same email or mobile number used at checkout.</p>
+
+    <div class="formGrid trackLookupGrid">
+      <label>Order ID
+        <input name="orderId" placeholder="ORD_..." autocomplete="off" required>
+      </label>
+      <label>Email or mobile number
+        <input name="contact" placeholder="Email or 09XXXXXXXXX" autocomplete="email" required>
+      </label>
+    </div>
+
+    <button class="btn" type="submit">Track Order</button>
+    <p id="trackOrderStatus" class="trackOrderStatus"></p>
+    <div id="trackOrderResult" class="trackOrderResult hide"></div>
+  </form>
+</dialog>
+
 <dialog id="checkoutDlg" class="checkoutDialog">
   <form id="checkoutForm">
     <button type="button" id="closeDlg" class="x">×</button>
     <h2>Checkout</h2>
+    <div id="checkoutMiniSummary" class="checkoutMiniSummary"></div>
 
     <div class="formSection">
       <div class="formSectionHead">
@@ -115,6 +142,10 @@
 
       <label>Mobile number
         <input name="mobile" inputmode="tel" autocomplete="tel" required>
+      </label>
+
+      <label>Email address
+        <input name="email" type="email" autocomplete="email" placeholder="For payment confirmation and receipt" required>
       </label>
 
       <label>Complete address
@@ -304,6 +335,7 @@
           <button type="button" class="btn secondary" id="viewQrBtn">View Full Size</button>
         </div>
 
+        <p class="shippingFeeNotice"><b>Shipping fee is not included.</b> The amount shown is for the products only. Shipping will be confirmed separately.</p>
         <p id="paymentNote" class="paymentInstruction">Using one phone only? Download the QR first, then select the saved QR image inside your payment app.</p>
       </section>
 
@@ -328,15 +360,17 @@
     <div class="orderSuccessCard">
       <small>ORDER ID</small>
       <b id="successOrderId">—</b>
-      <small>ORDER TOTAL</small>
+      <small>PRODUCT TOTAL</small>
       <strong id="successOrderTotal">₱0</strong>
+      <span class="successShippingNote">Shipping fee not included</span>
     </div>
 
     <p id="messengerInstruction" class="messengerInstruction hide">
       Tap the button below. Your order details will be copied, then Facebook will open. Paste the copied message and send it to the seller.
     </p>
 
-    <div class="successActions">
+    <div class="successActions successActionsThree">
+      <button type="button" id="trackThisOrderBtn" class="btn">Track This Order</button>
       <button type="button" id="sendOrderSellerBtn" class="btn hide">Copy Order & Chat to Seller</button>
       <button type="button" id="copyOrderBtn" class="btn secondary">Copy Order Details</button>
     </div>
