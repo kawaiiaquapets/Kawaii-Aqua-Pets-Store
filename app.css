@@ -116,3 +116,30 @@
   .trackOrderCardHead{flex-direction:column}
   .successActionsThree{grid-template-columns:1fr}
 }
+
+/* Admin live data refresh */
+.adminTopActions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.adminRefreshMeta{display:grid;gap:3px;text-align:right;margin-right:2px}
+.adminRefreshMeta span{font-size:12px;font-weight:800;color:#087f67}
+.adminRefreshMeta small{font-size:11px;color:#65756f}
+.refreshDataBtn{min-width:132px}
+.refreshDataBtn.refreshing{opacity:.72;cursor:wait}
+.tabs button{display:inline-flex;align-items:center;gap:7px}
+.newDataBadge{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#b42318;color:#fff;font-size:11px;font-weight:900}
+.adminDataToast{position:fixed;right:18px;bottom:18px;z-index:80;transform:translateY(140%);opacity:0;display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:11px;width:min(430px,calc(100% - 28px));padding:13px 14px;background:#10231f;color:#fff;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.26);transition:transform .25s ease,opacity .25s ease;pointer-events:none}
+.adminDataToast.show{transform:translateY(0);opacity:1;pointer-events:auto}
+.adminDataToast.success{background:#075f50}
+.adminDataToast.warning{background:#8f2016}
+.adminDataToastIcon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#ffffff24;font-size:20px;font-weight:900}
+.adminDataToastCopy{display:grid;gap:3px;min-width:0}
+.adminDataToastCopy b{font-size:14px}
+.adminDataToastCopy span{font-size:12px;line-height:1.4;color:#e8f1ee}
+.adminDataToast>button{border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer;padding:3px 5px}
+
+@media(max-width:800px){
+  .top{align-items:flex-start;gap:14px;flex-direction:column}
+  .adminTopActions{width:100%;justify-content:flex-start}
+  .adminRefreshMeta{width:100%;text-align:left}
+  .refreshDataBtn,.adminTopActions>a{flex:1;text-align:center}
+  .adminDataToast{right:14px;bottom:14px}
+}
