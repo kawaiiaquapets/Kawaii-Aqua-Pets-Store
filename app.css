@@ -26,3 +26,93 @@
 .socialSection{padding:50px 0;background:#fff}.socialInner{display:flex;justify-content:space-between;align-items:center;gap:24px}.socialInner h2{margin:8px 0}.socialInner p{margin:0;color:#65756f}.socialLinks{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.socialBtn{display:inline-flex;align-items:center;justify-content:center;min-width:110px;padding:12px 16px;border-radius:999px;color:#fff;text-decoration:none;font-weight:800}.facebookSocial{background:#1877f2}.tiktokSocial{background:#111}.youtubeSocial{background:#d71920}.floatingChatBtn{position:fixed;right:18px;bottom:18px;z-index:18;border:0;border-radius:999px;background:#1877f2;color:#fff;padding:14px 18px;font-weight:800;box-shadow:0 12px 28px rgba(0,0,0,.2);cursor:pointer}.orderSuccessDialog{width:min(560px,calc(100% - 24px));padding:0}.orderSuccessContent{position:relative;padding:30px;text-align:center}.successIcon{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;background:#e4f6ef;color:#087f67;font-size:34px;font-weight:900}.orderSuccessContent h2{margin:0 0 8px}.orderSuccessSummary{margin:0 auto 18px;color:#65756f;line-height:1.55}.orderSuccessCard{display:grid;gap:5px;padding:16px;margin:0 0 16px;background:#f5faf8;border:1px solid #dce8e4;border-radius:14px}.orderSuccessCard small{font-size:11px;letter-spacing:.09em;color:#65756f;font-weight:800}.orderSuccessCard b{font-size:20px}.orderSuccessCard strong{font-size:25px;color:#087f67}.messengerInstruction{padding:12px;margin:0 0 14px;background:#eef5ff;border:1px solid #d6e5ff;border-radius:10px;color:#34506e;line-height:1.5;text-align:left}.successActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.orderSuccessMsg{min-height:20px;color:#087f67;line-height:1.45}.plainBtn{border:0;background:transparent;color:#087f67;font-weight:800;cursor:pointer;padding:8px}.settingsDivider+label{margin-top:2px}
 
 @media(max-width:800px){.socialInner{align-items:flex-start;flex-direction:column}.socialLinks{width:100%;justify-content:flex-start}.socialBtn{flex:1}.floatingChatBtn{right:12px;bottom:12px}.successActions{grid-template-columns:1fr}.orderSuccessContent{padding:26px 20px}}
+
+
+/* Add-to-cart toast, Buy Now, and checkout summary */
+.productActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.productActions .btn{padding:11px 14px}
+.productActions .addCartBtn{background:#dfeae6;color:#10231f}
+.productActions .buyNowBtn{background:#087f67;color:#fff}
+.checkoutMiniSummary{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:14px 16px;background:#eef9f5;border:1px solid #c9ddd6;border-radius:14px}
+.checkoutMiniSummary>div{display:grid;gap:4px;min-width:0}
+.checkoutMiniSummary small{font-size:11px;letter-spacing:.08em;color:#087f67;font-weight:800}
+.checkoutMiniSummary b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checkoutMiniSummary strong{font-size:22px;color:#087f67;white-space:nowrap}
+.cartToast{position:fixed;left:50%;bottom:24px;z-index:60;transform:translate(-50%,140%);opacity:0;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;width:min(520px,calc(100% - 28px));padding:13px 14px;background:#10231f;color:#fff;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.25);transition:transform .25s ease,opacity .25s ease;pointer-events:none}
+.cartToast.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.cartToastIcon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#dff7ef;color:#087f67;font-weight:900}
+.cartToastText{display:grid;gap:2px;min-width:0}
+.cartToastText span{font-size:13px;color:#d5e2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cartToast button{border:0;border-radius:9px;padding:9px 11px;background:#fff;color:#10231f;font-weight:800;cursor:pointer}
+.receiptEmailStatus{display:block;margin-top:7px;max-width:230px;color:#65756f;line-height:1.35}
+
+@media(max-width:800px){
+  .productActions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .productActions .btn{width:100%}
+  .checkoutMiniSummary{align-items:flex-start}
+  .checkoutMiniSummary strong{font-size:19px}
+  .cartToast{bottom:14px}
+}
+
+.card .row{flex-wrap:wrap}
+.shippingFeeNotice{margin:0;padding:12px;background:#fff7e8;border:1px solid #f0d39b;border-radius:10px;color:#6b4b14;line-height:1.5}
+.successShippingNote{font-size:12px;color:#b42318;font-weight:800}
+
+
+/* Customer order tracking */
+.navActions{display:flex;align-items:center;gap:8px}
+.navTrackBtn{border:1px solid #c9ddd6;border-radius:10px;background:#eef9f5;color:#075f50;padding:12px 15px;font-weight:800;cursor:pointer}
+.trackOrderDialog{width:min(720px,calc(100% - 24px));max-height:92vh}
+.trackOrderDialog form{padding:28px;gap:14px}
+.trackOrderIntro{margin:-4px 0 4px;color:#65756f;line-height:1.5}
+.trackLookupGrid{align-items:end}
+.trackOrderStatus{min-height:20px;margin:0;color:#b42318}
+.trackOrderResult{display:grid;gap:18px;margin-top:4px}
+.trackOrderCard,.trackItemsCard,.trackTimeline{padding:18px;border:1px solid #dce8e4;border-radius:16px;background:#fff}
+.trackOrderCardHead{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
+.trackOrderCardHead>div{display:grid;gap:4px}
+.trackOrderCardHead small,.trackMetaGrid small{font-size:11px;letter-spacing:.08em;color:#65756f;font-weight:800}
+.trackOrderCardHead b{font-size:20px}
+.trackStatusBadge{display:inline-flex;padding:7px 10px;border-radius:999px;background:#e4f6ef;color:#087f67;font-size:12px;font-weight:800;text-align:center}
+.trackStatusBadge.cancelled{background:#ffe6e3;color:#b42318}
+.trackMetaGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.trackMetaGrid>div{display:grid;gap:4px;padding:12px;background:#f6faf8;border-radius:10px;min-width:0}
+.trackMetaGrid b{overflow-wrap:anywhere}
+.trackMetaGrid span{font-size:11px;color:#b42318;font-weight:700}
+.trackingNumberText{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.trackCourierBtn{display:flex;justify-content:center;margin-top:14px}
+.trackTimeline h3,.trackItemsCard h3{margin:0 0 16px}
+.trackStep{position:relative;display:grid;grid-template-columns:36px 1fr;gap:12px;min-height:78px}
+.trackStep:not(:last-child)::after{content:"";position:absolute;left:17px;top:34px;bottom:0;width:2px;background:#dce8e4}
+.trackStep.done:not(:last-child)::after{background:#64bfae}
+.trackStepMarker{position:relative;z-index:1;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#edf3f1;color:#899993;font-weight:900;border:2px solid #d5e2de}
+.trackStep.done .trackStepMarker{background:#e4f6ef;color:#087f67;border-color:#8bd0c1}
+.trackStep.current .trackStepMarker{background:#087f67;color:#fff;border-color:#087f67;box-shadow:0 0 0 5px rgba(8,127,103,.12)}
+.trackStepContent{padding:5px 0 18px}
+.trackStepContent b{display:block;margin-bottom:4px}
+.trackStepContent p{margin:0;color:#65756f;line-height:1.45;font-size:14px}
+.trackStepContent small{display:block;margin-top:5px;color:#087f67}
+.trackStep.upcoming .trackStepContent{opacity:.55}
+.trackCancelledNotice{display:grid;gap:5px;padding:15px 16px;background:#fff0ee;border:1px solid #f2c8c2;border-radius:14px;color:#8f2016}
+.trackItemRow{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #e6efec}
+.trackItemTotal{display:flex;justify-content:space-between;gap:16px;padding:14px 0 6px;font-size:17px}
+.trackItemsCard>small{color:#b42318;font-weight:700}
+.successActionsThree{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+/* Admin tracking editor */
+.trackingAdminPanel{display:grid;gap:10px;margin:18px 0;padding:16px;border:1px solid #c9ddd6;border-radius:14px;background:#f8fcfb}
+.trackingAdminPanel h3{margin:0 0 4px}
+.trackingAdminPanel p{margin:0}
+#trackingSaveMsg{min-height:20px;color:#087f67}
+.trackingAdminSummary{display:block;margin-top:7px;max-width:230px;font-size:12px;line-height:1.35;color:#52645e;overflow-wrap:anywhere}
+.shipmentEmailStatus{display:block;margin-top:7px;max-width:230px;color:#365c54;line-height:1.35;font-size:12px}
+
+@media(max-width:800px){
+  .nav{height:auto;min-height:74px;padding:10px 0;gap:10px}
+  .brand small{display:none}
+  .navActions{gap:6px}
+  .navTrackBtn,#cartBtn{padding:10px 11px;font-size:12px}
+  .trackMetaGrid{grid-template-columns:1fr}
+  .trackOrderCardHead{flex-direction:column}
+  .successActionsThree{grid-template-columns:1fr}
+}
