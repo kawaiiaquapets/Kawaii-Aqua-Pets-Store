@@ -3,6 +3,7 @@ const FALLBACK_IMAGE = "assets/logo.png";
 const DEFAULT_LALAMOVE_FORM_URL = "https://delivery.lalamove.com/forms/PH4c4ef013d6d54893b979fa6c04c447ca";
 const DEFAULT_GCASH_QR = "assets/gcash-qr.jpg";
 const DEFAULT_UNIONBANK_QR = "assets/unionbank-qr.jpeg";
+const LBC_TRACKING_URL = "https://www.lbcexpress.com/track/";
 
 let passcode = sessionStorage.getItem("kap_admin_passcode") || "";
 let data = {settings:{},categories:[],products:[],orders:[],reviews:[]};
@@ -224,7 +225,7 @@ function getDeliverySummary(order) {
 }
 
 function renderOrders() {
-  const statuses = ["Pending", "Paid", "Shipped", "Completed", "Cancelled"];
+  const statuses = ["Pending", "Paid", "Preparing", "Ready", "Shipped", "Completed", "Cancelled"];
 
   $("ordersBody").innerHTML = data.orders.map(order => {
     const method = getDeliveryMethod(order);
@@ -240,7 +241,7 @@ function renderOrders() {
         <td>${escapeHtml(formatDate(order.createdAt))}</td>
         <td>
           <b>${escapeHtml(order.customerName)}</b><br>
-          <small>${escapeHtml(order.mobile)}<br>${escapeHtml(order.address)}</small>
+          <small>${escapeHtml(order.mobile)}<br>${escapeHtml(order.email || "No email")}<br>${escapeHtml(order.address)}</small>
         </td>
         <td>
           <span class="courierBadge ${isLbc ? "courierLbc" : isLalamove ? "courierLalamove" : ""}">${escapeHtml(method)}</span>
@@ -252,6 +253,8 @@ function renderOrders() {
         <td>
           <span class="paymentBadge ${paymentClass}">${escapeHtml(order.paymentSummary || paymentLabel)}</span>
           ${order.proofUrl ? `<a class="proofLink" href="${escapeHtml(imageSrc(order.proofUrl))}" target="_blank" rel="noopener">View proof</a>` : "—"}
+          ${order.receiptEmailStatus ? `<small class="receiptEmailStatus">${escapeHtml(order.receiptEmailStatus)}</small>` : ""}
+          ${order.shipmentEmailStatus ? `<small class="shipmentEmailStatus">${escapeHtml(order.shipmentEmailStatus)}</small>` : ""}
         </td>
         <td>
           <select onchange="changeOrderStatus('${escapeHtml(order.id)}',this.value)">
@@ -265,6 +268,8 @@ function renderOrders() {
             ${isLbc ? `<button class="printShipBtn" onclick="printDelivery('${escapeHtml(order.id)}')">Print</button>` : ""}
             ${isLalamove ? `<a class="smallLinkBtn" href="${escapeHtml(data.settings.lalamoveFormUrl || DEFAULT_LALAMOVE_FORM_URL)}" target="_blank" rel="noopener">Form</a>` : ""}
           </div>
+          ${order.trackingNumber ? `<small class="trackingAdminSummary"><b>Tracking:</b> ${escapeHtml(order.trackingNumber)}</small>` : ""}
+          ${order.trackingUrl ? `<a class="trackingAdminSummary" href="${escapeHtml(order.trackingUrl)}" target="_blank" rel="noopener">Open saved tracking link</a>` : ""}
         </td>
       </tr>
     `;
@@ -325,7 +330,8 @@ function buildDeliveryHtml(order) {
         ${deliveryRowsHtml([
           ["Receiver full name", delivery.receiverName],
           ["Mobile number", delivery.mobile],
-          ["Email address", delivery.email],
+          ["Customer receipt email", order.email],
+          ["LBC email address", delivery.email],
           ["Receiving option", serviceType]
         ])}
       </div>
@@ -370,6 +376,7 @@ function buildDeliveryHtml(order) {
           ["Customer confirmation", toBool(order.lalamoveFormCompleted) ? "Completed Lalamove form" : "Not confirmed"],
           ["Customer name", order.customerName],
           ["Mobile number", order.mobile],
+          ["Email address", order.email],
           ["Base address", order.address]
         ])}
         <a class="btn deliveryLink" href="${escapeHtml(formUrl)}" target="_blank" rel="noopener">Open Lalamove Form</a>
@@ -382,8 +389,21 @@ function buildDeliveryHtml(order) {
         ${deliveryRowsHtml([
           ["Customer name", order.customerName],
           ["Mobile number", order.mobile],
+          ["Email address", order.email],
           ["Address", order.address],
           ["Notes", order.notes]
+        ])}
+      </div>
+    `;
+  }
+
+  if (order.trackingNumber || order.trackingUrl) {
+    html += `
+      <div class="detailSection">
+        <h3>Saved Tracking Details</h3>
+        ${deliveryRowsHtml([
+          ["Tracking number", order.trackingNumber],
+          ["Tracking / share link", order.trackingUrl]
         ])}
       </div>
     `;
@@ -411,6 +431,8 @@ function buildShippingText(order) {
     `ORDER ID: ${order.id || ""}`,
     `DELIVERY METHOD: ${method}`,
     `ORDER STATUS: ${order.status || ""}`,
+    `TRACKING NUMBER: ${order.trackingNumber || ""}`,
+    `TRACKING / SHARE LINK: ${order.trackingUrl || ""}`,
     ""
   ];
 
@@ -454,6 +476,7 @@ function buildShippingText(order) {
       `Customer Confirmed Form Completed: ${toBool(order.lalamoveFormCompleted) ? "YES" : "NO"}`,
       `Customer: ${order.customerName || ""}`,
       `Mobile: ${order.mobile || ""}`,
+      `Email: ${order.email || ""}`,
       `Base Address: ${order.address || ""}`,
       `Form URL: ${data.settings.lalamoveFormUrl || DEFAULT_LALAMOVE_FORM_URL}`,
       ""
@@ -463,6 +486,7 @@ function buildShippingText(order) {
       "CUSTOMER DETAILS",
       `Customer: ${order.customerName || ""}`,
       `Mobile: ${order.mobile || ""}`,
+      `Email: ${order.email || ""}`,
       `Address: ${order.address || ""}`,
       ""
     );
@@ -538,10 +562,42 @@ window.removeProduct = async id => {
 };
 
 window.changeOrderStatus = async (id, status) => {
+  const order = data.orders.find(x => x.id === id);
+  if (!order) return;
+
+  if (status === "Shipped") {
+    const method = getDeliveryMethod(order);
+    const missingTracking = method === "LBC"
+      ? !String(order.trackingNumber || "").trim()
+      : method === "Lalamove"
+        ? !String(order.trackingUrl || "").trim()
+        : false;
+
+    if (missingTracking) {
+      const detail = method === "LBC" ? "LBC tracking number" : "Lalamove tracking/share link";
+      if (!confirm(`No ${detail} is saved yet. Mark this order Shipped anyway?`)) {
+        await loadAdmin();
+        return;
+      }
+    }
+  }
+
   try {
     const result = await api("updateOrderStatus", {id, status});
-    if (result.inventoryAction === "deducted") alert("Payment approved. Stock was deducted.");
-    if (result.inventoryAction === "restored") alert("Order cancelled. Stock was restored.");
+
+    if (result.inventoryAction === "deducted") {
+      const emailMessage = result.emailNotification?.message || "Receipt email status is unavailable.";
+      alert("Payment approved. Stock was deducted.\n\n" + emailMessage);
+    }
+
+    if (result.inventoryAction === "restored") {
+      alert("Order cancelled. Stock was restored.");
+    }
+
+    if (result.shippingEmailNotification) {
+      alert("Order marked as Shipped.\n\n" + result.shippingEmailNotification.message);
+    }
+
     await loadAdmin();
   } catch (err) {
     alert(err.message);
@@ -567,9 +623,32 @@ window.viewDelivery = id => {
   $("deliveryDlgTitle").textContent = `${getDeliveryMethod(order)} Shipping Details`;
   $("deliveryDetailContent").innerHTML = buildDeliveryHtml(order);
   $("printDeliveryBtn").classList.toggle("hide", getDeliveryMethod(order) !== "LBC");
+  populateTrackingEditor(order);
   $("deliveryActionMsg").textContent = "";
   $("deliveryDlg").showModal();
 };
+
+function populateTrackingEditor(order) {
+  const method = getDeliveryMethod(order);
+  const isLbc = method === "LBC";
+  const isLalamove = method === "Lalamove";
+
+  $("trackingAdminPanel").classList.toggle("hide", !isLbc && !isLalamove);
+  $("trackingNumberLabel").classList.toggle("hide", !isLbc);
+  $("trackingNumberInput").value = order.trackingNumber || "";
+  $("trackingUrlInput").value = order.trackingUrl || "";
+  $("trackingSaveMsg").textContent = "";
+
+  if (isLbc) {
+    $("trackingUrlLabel").childNodes[0].nodeValue = "Tracking page URL ";
+    $("trackingUrlInput").placeholder = LBC_TRACKING_URL;
+    $("trackingAdminHelp").textContent = "Enter the LBC tracking number. The customer Track Order page will use the official LBC tracking page even when the optional URL field is blank.";
+  } else if (isLalamove) {
+    $("trackingUrlLabel").childNodes[0].nodeValue = "Lalamove tracking / share link ";
+    $("trackingUrlInput").placeholder = "https://...";
+    $("trackingAdminHelp").textContent = "Paste the live tracking or share link from your Lalamove delivery. This link will be shown to the customer.";
+  }
+}
 
 window.copyDelivery = async id => {
   const order = data.orders.find(x => x.id === id);
@@ -788,6 +867,31 @@ $("copyDeliveryBtn").onclick = async () => {
 
 $("printDeliveryBtn").onclick = () => {
   if (selectedDeliveryOrder) printDelivery(selectedDeliveryOrder.id);
+};
+
+$("saveTrackingBtn").onclick = async () => {
+  if (!selectedDeliveryOrder) return;
+
+  $("trackingSaveMsg").textContent = "Saving tracking details...";
+
+  try {
+    await api("saveTrackingInfo", {
+      id: selectedDeliveryOrder.id,
+      trackingNumber: $("trackingNumberInput").value.trim(),
+      trackingUrl: $("trackingUrlInput").value.trim()
+    });
+
+    await loadAdmin();
+    selectedDeliveryOrder = data.orders.find(order => order.id === selectedDeliveryOrder.id) || null;
+
+    if (selectedDeliveryOrder) {
+      $("deliveryDetailContent").innerHTML = buildDeliveryHtml(selectedDeliveryOrder);
+      populateTrackingEditor(selectedDeliveryOrder);
+      $("trackingSaveMsg").textContent = "Tracking details saved.";
+    }
+  } catch (err) {
+    $("trackingSaveMsg").textContent = err.message;
+  }
 };
 
 document.querySelectorAll("[data-tab]").forEach(button => {
