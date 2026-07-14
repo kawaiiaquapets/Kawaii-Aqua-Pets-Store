@@ -57,12 +57,31 @@
 <section class="features">
   <div class="wrap feat">
     <div><b>Nationwide Shipping</b><small>Across the Philippines</small></div>
-    <div><b>GCash Payment</b><small>Upload proof after checkout</small></div>
+    <div><b>QR Payment</b><small>GCash or UnionBank InstaPay QR</small></div>
     <div><b>Careful Packaging</b><small>Prepared for safe transport</small></div>
   </div>
 </section>
 
+<section id="socialSection" class="socialSection hide">
+  <div class="wrap socialInner">
+    <div>
+      <span class="reviewEyebrow">STAY CONNECTED</span>
+      <h2>Follow Kawaii Aqua Pets</h2>
+      <p>See new arrivals, updates, and future pet content.</p>
+    </div>
+    <div class="socialLinks">
+      <a id="facebookLink" class="socialBtn facebookSocial hide" target="_blank" rel="noopener noreferrer">Facebook</a>
+      <a id="tiktokLink" class="socialBtn tiktokSocial hide" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a id="youtubeLink" class="socialBtn youtubeSocial hide" target="_blank" rel="noopener noreferrer">YouTube</a>
+    </div>
+  </div>
+</section>
+
 <div id="overlay" class="overlay hide"></div>
+
+<button id="floatingChatBtn" class="floatingChatBtn hide" type="button" aria-label="Chat to seller">
+  💬 Chat to Seller
+</button>
 
 <aside id="cart" class="cart">
   <div class="cartHead">
@@ -76,25 +95,255 @@
   </div>
 </aside>
 
-<dialog id="checkoutDlg">
+<dialog id="checkoutDlg" class="checkoutDialog">
   <form id="checkoutForm">
     <button type="button" id="closeDlg" class="x">×</button>
     <h2>Checkout</h2>
-    <div class="gcash">
-      <small>GCash Payment</small>
-      <b id="gcashName">Kawaii Aqua Pets</b>
-      <b id="gcashNumber">09XX XXX XXXX</b>
-      <span id="paymentNote">Use your full name as reference.</span>
+
+    <div class="formSection">
+      <div class="formSectionHead">
+        <span class="stepBadge">1</span>
+        <div>
+          <h3>Customer Details</h3>
+          <p>Basic order and contact information.</p>
+        </div>
+      </div>
+
+      <label>Full name
+        <input name="customerName" autocomplete="name" required>
+      </label>
+
+      <label>Mobile number
+        <input name="mobile" inputmode="tel" autocomplete="tel" required>
+      </label>
+
+      <label>Complete address
+        <textarea name="address" rows="3" autocomplete="street-address" required></textarea>
+      </label>
+
+      <label>Notes
+        <textarea name="notes" rows="3" placeholder="Optional order notes"></textarea>
+      </label>
     </div>
-    <label>Full name<input name="customerName" required></label>
-    <label>Mobile number<input name="mobile" required></label>
-    <label>Complete address<textarea name="address" required></textarea></label>
-    <label>Notes<textarea name="notes"></textarea></label>
-    <label>Proof of payment<input name="proof" type="file" accept="image/*" required></label>
-    <small>Images are automatically optimized before upload. Maximum original file size: 10 MB.</small>
+
+    <div class="formSection">
+      <div class="formSectionHead">
+        <span class="stepBadge">2</span>
+        <div>
+          <h3>Delivery Method</h3>
+          <p>Choose Lalamove or LBC.</p>
+        </div>
+      </div>
+
+      <label>Delivery option
+        <select name="deliveryMethod" id="deliveryMethod" required>
+          <option value="">Select delivery method</option>
+          <option value="lalamove">Lalamove</option>
+          <option value="lbc">LBC</option>
+        </select>
+      </label>
+
+      <section id="lalamoveFields" class="deliveryBox hide">
+        <div class="deliveryBoxHead">
+          <div>
+            <span class="deliveryTag">LALAMOVE</span>
+            <h3>Complete the Lalamove Delivery Form</h3>
+          </div>
+        </div>
+        <p>
+          Open the delivery form and complete the requested delivery details.
+          Return to this checkout page after submitting the form.
+        </p>
+        <a
+          id="lalamoveFormLink"
+          class="btn deliveryLink"
+          href="https://delivery.lalamove.com/forms/PH4c4ef013d6d54893b979fa6c04c447ca"
+          target="_blank"
+          rel="noopener"
+        >Open Lalamove Delivery Form</a>
+
+        <label class="checkLabel deliveryConfirm">
+          <input name="lalamoveCompleted" type="checkbox">
+          I confirm that I completed the Lalamove delivery form.
+        </label>
+        <small class="muted">The website records your confirmation only. The delivery form itself opens on Lalamove's website.</small>
+      </section>
+
+      <section id="lbcFields" class="deliveryBox hide">
+        <div class="deliveryBoxHead">
+          <div>
+            <span class="deliveryTag lbcTag">LBC</span>
+            <h3>LBC Delivery Details</h3>
+          </div>
+        </div>
+        <p>Fill in the receiver details in a structured format so Kawaii Aqua Pets can view, copy, and print the shipping details before going to LBC.</p>
+
+        <div class="formGrid">
+          <label>Receiver full name
+            <input name="lbcReceiverName" autocomplete="name">
+          </label>
+
+          <label>Receiver mobile number
+            <input name="lbcMobile" inputmode="tel" autocomplete="tel">
+          </label>
+        </div>
+
+        <label>Email address <span class="optional">(optional)</span>
+          <input name="lbcEmail" type="email" autocomplete="email">
+        </label>
+
+        <label>Receiving option
+          <select name="lbcServiceType" id="lbcServiceType">
+            <option value="Door-to-Door">Door-to-Door</option>
+            <option value="Branch Pickup">Branch Pickup</option>
+          </select>
+        </label>
+
+        <div id="lbcDoorFields">
+          <div class="formGrid">
+            <label>Province
+              <input name="lbcProvince">
+            </label>
+
+            <label>City / Municipality
+              <input name="lbcCity">
+            </label>
+          </div>
+
+          <div class="formGrid">
+            <label>Barangay
+              <input name="lbcBarangay">
+            </label>
+
+            <label>Postal / ZIP code
+              <input name="lbcPostalCode" inputmode="numeric">
+            </label>
+          </div>
+
+          <label>House / Unit / Lot / Block number
+            <input name="lbcHouseUnit">
+          </label>
+
+          <label>Street / Subdivision
+            <input name="lbcStreet">
+          </label>
+
+          <label>Delivery landmark <span class="optional">(optional)</span>
+            <input name="lbcLandmark" placeholder="Example: Near Jollibee, beside barangay hall">
+          </label>
+        </div>
+
+        <div id="lbcBranchFields" class="hide">
+          <div class="formGrid">
+            <label>Province
+              <input name="lbcBranchProvince">
+            </label>
+
+            <label>City / Municipality
+              <input name="lbcBranchCity">
+            </label>
+          </div>
+
+          <label>Preferred LBC branch
+            <input name="lbcBranchName" placeholder="Branch name or location">
+          </label>
+
+          <label>Receiver name exactly as shown on valid ID
+            <input name="lbcValidIdName">
+          </label>
+        </div>
+
+        <label>Delivery instructions <span class="optional">(optional)</span>
+          <textarea name="lbcInstructions" rows="3" placeholder="Other details that may help with the shipment"></textarea>
+        </label>
+      </section>
+    </div>
+
+    <div class="formSection">
+      <div class="formSectionHead">
+        <span class="stepBadge">3</span>
+        <div>
+          <h3>Payment</h3>
+          <p>Choose GCash or UnionBank, scan or download the QR, then upload your payment proof.</p>
+        </div>
+      </div>
+
+      <div class="paymentOptions" role="radiogroup" aria-label="Payment method">
+        <label class="paymentOption">
+          <input type="radio" name="paymentMethod" value="gcash" required>
+          <span><b>GCash</b><small>Pay using the GCash / InstaPay QR</small></span>
+        </label>
+        <label class="paymentOption">
+          <input type="radio" name="paymentMethod" value="unionbank" required>
+          <span><b>UnionBank</b><small>Pay using the UnionBank InstaPay QR</small></span>
+        </label>
+      </div>
+
+      <section id="paymentBox" class="paymentBox hide">
+        <div class="paymentProviderRow">
+          <div>
+            <small>PAYMENT METHOD</small>
+            <h3 id="paymentProvider">GCash</h3>
+          </div>
+          <div class="paymentTotal">
+            <small>AMOUNT TO PAY</small>
+            <b id="paymentAmount">₱0</b>
+          </div>
+        </div>
+
+        <img id="paymentQr" class="paymentQr" src="assets/gcash-qr.jpg" alt="Payment QR code">
+
+        <div class="paymentAccount">
+          <small>Account Name</small>
+          <b id="paymentAccountName">Joebert Greganda</b>
+          <span id="paymentAccountHint"></span>
+        </div>
+
+        <div class="paymentQrActions">
+          <button type="button" class="btn" id="downloadQrBtn">Download QR</button>
+          <button type="button" class="btn secondary" id="viewQrBtn">View Full Size</button>
+        </div>
+
+        <p id="paymentNote" class="paymentInstruction">Using one phone only? Download the QR first, then select the saved QR image inside your payment app.</p>
+      </section>
+
+      <label>Proof of payment
+        <input name="proof" type="file" accept="image/*" required>
+      </label>
+      <small>Images are automatically optimized before upload. Maximum original file size: 10 MB.</small>
+    </div>
+
     <button class="btn" type="submit">Submit Order</button>
     <p id="status"></p>
   </form>
+</dialog>
+
+<dialog id="orderSuccessDlg" class="orderSuccessDialog">
+  <div class="orderSuccessContent">
+    <button type="button" id="closeOrderSuccess" class="x">×</button>
+    <div class="successIcon">✓</div>
+    <h2>Order Received!</h2>
+    <p id="orderSuccessSummary" class="orderSuccessSummary"></p>
+
+    <div class="orderSuccessCard">
+      <small>ORDER ID</small>
+      <b id="successOrderId">—</b>
+      <small>ORDER TOTAL</small>
+      <strong id="successOrderTotal">₱0</strong>
+    </div>
+
+    <p id="messengerInstruction" class="messengerInstruction hide">
+      Tap the button below. Your order details will be copied, then Facebook will open. Paste the copied message and send it to the seller.
+    </p>
+
+    <div class="successActions">
+      <button type="button" id="sendOrderSellerBtn" class="btn hide">Copy Order & Chat to Seller</button>
+      <button type="button" id="copyOrderBtn" class="btn secondary">Copy Order Details</button>
+    </div>
+
+    <p id="orderSuccessMsg" class="orderSuccessMsg"></p>
+    <button type="button" id="continueShoppingBtn" class="plainBtn">Continue Shopping</button>
+  </div>
 </dialog>
 
 <dialog id="reviewDlg">
