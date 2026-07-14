@@ -4,10 +4,17 @@ const DEFAULT_LALAMOVE_FORM_URL = "https://delivery.lalamove.com/forms/PH4c4ef01
 const DEFAULT_GCASH_QR = "assets/gcash-qr.jpg";
 const DEFAULT_UNIONBANK_QR = "assets/unionbank-qr.jpeg";
 const LBC_TRACKING_URL = "https://www.lbcexpress.com/track/";
+const AUTO_REFRESH_MS = 15000;
 
 let passcode = sessionStorage.getItem("kap_admin_passcode") || "";
 let data = {settings:{},categories:[],products:[],orders:[],reviews:[]};
 let selectedDeliveryOrder = null;
+let adminRefreshing = false;
+let autoRefreshTimer = null;
+let hasLoadedAdminData = false;
+let unseenOrderIds = new Set();
+let unseenReviewIds = new Set();
+let adminToastTimer = null;
 
 const $ = id => document.getElementById(id);
 const peso = n => new Intl.NumberFormat("en-PH", {
@@ -120,16 +127,151 @@ function fileDataUrl(file, maxBytes = 6 * 1024 * 1024) {
   });
 }
 
-async function loadAdmin() {
-  const result = await api("adminGetAll");
-  data = {
-    settings: result.settings || {},
-    categories: result.categories || [],
-    products: result.products || [],
-    orders: result.orders || [],
-    reviews: result.reviews || []
-  };
-  renderAll();
+function waitForAdminRefresh() {
+  return new Promise(resolve => {
+    const timer = setInterval(() => {
+      if (!adminRefreshing) {
+        clearInterval(timer);
+        resolve();
+      }
+    }, 80);
+  });
+}
+
+function setRefreshUi(isRefreshing, source = "manual") {
+  const button = $("refreshDataBtn");
+  if (!button) return;
+
+  button.disabled = isRefreshing;
+  button.classList.toggle("refreshing", isRefreshing);
+  button.textContent = isRefreshing
+    ? source === "auto" ? "Checking..." : "Refreshing..."
+    : "↻ Refresh Data";
+}
+
+function updateLastRefresh(message = "") {
+  const label = $("lastRefreshText");
+  if (!label) return;
+
+  if (message) {
+    label.textContent = message;
+    return;
+  }
+
+  label.textContent = `Last update: ${new Date().toLocaleTimeString("en-PH", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  })}`;
+}
+
+function updateNewDataBadges() {
+  const orderBadge = $("newOrdersBadge");
+  const reviewBadge = $("newReviewsBadge");
+
+  if (orderBadge) {
+    orderBadge.textContent = unseenOrderIds.size;
+    orderBadge.classList.toggle("hide", unseenOrderIds.size === 0);
+  }
+
+  if (reviewBadge) {
+    reviewBadge.textContent = unseenReviewIds.size;
+    reviewBadge.classList.toggle("hide", unseenReviewIds.size === 0);
+  }
+}
+
+function showAdminDataToast(title, message, type = "info") {
+  const toast = $("adminDataToast");
+  if (!toast) return;
+
+  $("adminDataToastTitle").textContent = title;
+  $("adminDataToastText").textContent = message;
+  toast.classList.toggle("success", type === "success");
+  toast.classList.toggle("warning", type === "warning");
+  toast.classList.add("show");
+
+  clearTimeout(adminToastTimer);
+  adminToastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+}
+
+function renderLiveData() {
+  renderOrders();
+  renderReviews();
+}
+
+async function loadAdmin(options = {}) {
+  const {
+    renderMode = "all",
+    notifyNew = false,
+    source = "manual"
+  } = options;
+
+  if (adminRefreshing) {
+    if (source === "auto") return false;
+    await waitForAdminRefresh();
+  }
+
+  adminRefreshing = true;
+  setRefreshUi(true, source);
+
+  try {
+    const previousOrderIds = new Set((data.orders || []).map(order => String(order.id)));
+    const previousReviewIds = new Set((data.reviews || []).map(review => String(review.id)));
+    const result = await api("adminGetAll");
+
+    const nextData = {
+      settings: result.settings || {},
+      categories: result.categories || [],
+      products: result.products || [],
+      orders: result.orders || [],
+      reviews: result.reviews || []
+    };
+
+    const newOrders = hasLoadedAdminData
+      ? nextData.orders.filter(order => !previousOrderIds.has(String(order.id)))
+      : [];
+    const newReviews = hasLoadedAdminData
+      ? nextData.reviews.filter(review => !previousReviewIds.has(String(review.id)))
+      : [];
+
+    if (notifyNew) {
+      newOrders.forEach(order => unseenOrderIds.add(String(order.id)));
+      newReviews.forEach(review => unseenReviewIds.add(String(review.id)));
+    }
+
+    data = nextData;
+
+    if (renderMode === "live") renderLiveData();
+    else renderAll();
+
+    updateNewDataBadges();
+    updateLastRefresh();
+
+    if (notifyNew && (newOrders.length || newReviews.length)) {
+      const parts = [];
+      if (newOrders.length) parts.push(`${newOrders.length} new order${newOrders.length === 1 ? "" : "s"}`);
+      if (newReviews.length) parts.push(`${newReviews.length} new review${newReviews.length === 1 ? "" : "s"}`);
+      showAdminDataToast("New data received", parts.join(" • "), "success");
+    }
+
+    hasLoadedAdminData = true;
+    return true;
+  } catch (err) {
+    updateLastRefresh(source === "auto" ? "Auto refresh failed • retrying" : "Refresh failed");
+    if (source === "auto") return false;
+    throw err;
+  } finally {
+    adminRefreshing = false;
+    setRefreshUi(false, source);
+  }
+}
+
+function startAutoRefresh() {
+  clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(() => {
+    if (!passcode || document.hidden) return;
+    loadAdmin({renderMode: "live", notifyNew: true, source: "auto"});
+  }, AUTO_REFRESH_MS);
 }
 
 function renderAll() {
@@ -722,11 +864,12 @@ $("loginForm").onsubmit = async event => {
   $("loginMsg").textContent = "Checking...";
 
   try {
-    await loadAdmin();
+    await loadAdmin({renderMode: "all", source: "login"});
     sessionStorage.setItem("kap_admin_passcode", passcode);
     $("login").classList.add("hide");
     $("dash").classList.remove("hide");
     $("loginMsg").textContent = "";
+    startAutoRefresh();
   } catch (err) {
     $("loginMsg").textContent = err.message;
     passcode = "";
@@ -894,18 +1037,47 @@ $("saveTrackingBtn").onclick = async () => {
   }
 };
 
+$("refreshDataBtn").onclick = async () => {
+  try {
+    const previousOrders = new Set(data.orders.map(order => String(order.id)));
+    const previousReviews = new Set(data.reviews.map(review => String(review.id)));
+    await loadAdmin({renderMode: "live", notifyNew: true, source: "manual"});
+
+    const hasNewOrder = data.orders.some(order => !previousOrders.has(String(order.id)));
+    const hasNewReview = data.reviews.some(review => !previousReviews.has(String(review.id)));
+    if (!hasNewOrder && !hasNewReview) {
+      showAdminDataToast("Data refreshed", "Orders and reviews are already up to date.");
+    }
+  } catch (err) {
+    showAdminDataToast("Refresh failed", err.message, "warning");
+  }
+};
+
+$("closeAdminDataToast").onclick = () => $("adminDataToast").classList.remove("show");
+
 document.querySelectorAll("[data-tab]").forEach(button => {
   button.onclick = () => {
     document.querySelectorAll(".tabPanel").forEach(panel => panel.classList.add("hide"));
     $(button.dataset.tab).classList.remove("hide");
+
+    if (button.dataset.tab === "orders") unseenOrderIds.clear();
+    if (button.dataset.tab === "reviews") unseenReviewIds.clear();
+    updateNewDataBadges();
   };
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && passcode) {
+    loadAdmin({renderMode: "live", notifyNew: true, source: "auto"});
+  }
+});
+
 if (passcode) {
-  loadAdmin()
+  loadAdmin({renderMode: "all", source: "session"})
     .then(() => {
       $("login").classList.add("hide");
       $("dash").classList.remove("hide");
+      startAutoRefresh();
     })
     .catch(() => {
       sessionStorage.removeItem("kap_admin_passcode");
