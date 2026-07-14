@@ -41,9 +41,71 @@
         <div class="imagePreviewWrap"><img id="logoPreview" src="assets/logo.png" alt="Logo preview"></div>
         <input name="siteName" placeholder="Website name">
         <input name="tagline" placeholder="Tagline">
-        <input name="gcashName" placeholder="GCash account name">
-        <input name="gcashNumber" placeholder="GCash number">
-        <textarea name="paymentNote" placeholder="Payment note"></textarea>
+
+        <div class="settingsDivider">
+          <h3>Payment Settings</h3>
+          <p class="muted">Customers can choose GCash or UnionBank and download the QR if they only have one phone. QR uploads are saved without image recompression.</p>
+        </div>
+
+        <div class="paymentAdminGrid">
+          <div class="paymentAdminCard">
+            <h3>GCash</h3>
+            <div class="paymentQrPreview"><img id="gcashQrPreview" src="assets/gcash-qr.jpg" alt="GCash QR preview"></div>
+            <input name="gcashName" placeholder="GCash account name">
+            <input name="gcashNumber" placeholder="GCash mobile / account hint (optional)">
+            <label>New GCash QR <span class="optional">(leave blank to keep current)</span>
+              <input name="gcashQrFile" type="file" accept="image/*">
+            </label>
+          </div>
+
+          <div class="paymentAdminCard">
+            <h3>UnionBank</h3>
+            <div class="paymentQrPreview"><img id="unionBankQrPreview" src="assets/unionbank-qr.jpeg" alt="UnionBank QR preview"></div>
+            <input name="unionBankName" placeholder="UnionBank account name">
+            <input name="unionBankAccountHint" placeholder="Account hint, e.g. **** **** 6628">
+            <label>New UnionBank QR <span class="optional">(leave blank to keep current)</span>
+              <input name="unionBankQrFile" type="file" accept="image/*">
+            </label>
+          </div>
+        </div>
+
+        <textarea name="paymentNote" placeholder="Payment instruction"></textarea>
+
+        <div class="settingsDivider">
+          <h3>Delivery Settings</h3>
+          <p class="muted">The Lalamove form link is shown to customers who select Lalamove.</p>
+        </div>
+
+        <label>Lalamove delivery form URL
+          <input name="lalamoveFormUrl" type="url" placeholder="https://delivery.lalamove.com/forms/...">
+        </label>
+
+        <div class="settingsDivider">
+          <h3>Sender Details for LBC Print View</h3>
+          <p class="muted">These are shown when you print LBC shipping details from an order.</p>
+        </div>
+
+        <input name="senderName" placeholder="Sender full name">
+        <input name="senderMobile" placeholder="Sender mobile number">
+        <textarea name="senderAddress" placeholder="Sender / return address"></textarea>
+
+        <div class="settingsDivider">
+          <h3>Social Media & Seller Chat</h3>
+          <p class="muted">Leave a field blank to hide that social button on the customer website. The Facebook link is also used by the Chat to Seller and order-to-seller buttons.</p>
+        </div>
+
+        <label>Facebook Page URL
+          <input name="facebookPageUrl" type="url" placeholder="https://www.facebook.com/yourpage">
+        </label>
+
+        <label>TikTok URL
+          <input name="tiktokUrl" type="url" placeholder="https://www.tiktok.com/@yourusername">
+        </label>
+
+        <label>YouTube Channel URL
+          <input name="youtubeUrl" type="url" placeholder="https://www.youtube.com/@yourchannel">
+        </label>
+
         <label>New logo <span class="optional">(leave blank to keep current)</span>
           <input name="logoFile" type="file" accept="image/*">
         </label>
@@ -86,10 +148,26 @@
     </section>
 
     <section id="orders" class="panel tabPanel hide">
-      <h2>Orders</h2>
+      <div class="ordersHead">
+        <div>
+          <h2>Orders</h2>
+          <p class="muted">View, copy, or print LBC shipping details. Lalamove orders show the customer's completion confirmation.</p>
+        </div>
+      </div>
       <div class="tableWrap">
         <table>
-          <thead><tr><th>Date</th><th>Customer</th><th>Order</th><th>Total</th><th>Proof</th><th>Status</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Customer</th>
+              <th>Delivery</th>
+              <th>Order</th>
+              <th>Total</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th>Shipping Details</th>
+            </tr>
+          </thead>
           <tbody id="ordersBody"></tbody>
         </table>
       </div>
@@ -106,6 +184,19 @@
     </section>
   </section>
 </main>
+
+<dialog id="deliveryDlg" class="deliveryAdminDialog">
+  <div class="deliveryAdminContent">
+    <button type="button" id="closeDeliveryDlg" class="x">×</button>
+    <h2 id="deliveryDlgTitle">Shipping Details</h2>
+    <div id="deliveryDetailContent"></div>
+    <div class="actions deliveryDialogActions">
+      <button type="button" class="btn secondary" id="copyDeliveryBtn">Copy Details</button>
+      <button type="button" class="btn" id="printDeliveryBtn">Print LBC Details</button>
+    </div>
+    <p id="deliveryActionMsg"></p>
+  </div>
+</dialog>
 
 <script src="config.js"></script>
 <script src="admin.js"></script>
